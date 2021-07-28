@@ -1,7 +1,11 @@
-from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
-from .models import Question
+from django.contrib.auth.decorators import login_required
+
 from .forms import QuestionForm, AnswerForm
+from .models import Question
 
 # Create your views here.
 
@@ -9,8 +13,17 @@ def index(request):
     """
     pybo 목록 출력
     """
+    # 입력 파라미터
+    page = request.GET.get('page', '1') #페이지
+
+    # 조회
     question_list = Question.objects.order_by('-create_date')
-    context = {'question_list': question_list}
+
+    #페이징처리
+    paginator = Paginator(question_list, 10) #페이지당 10
+    page_obj = paginator.get_page(page)
+
+    context = {'question_list': page_obj}
     return render(request, 'pybo/question_list.html', context)
 
 def detail(request, question_id):
@@ -21,6 +34,7 @@ def detail(request, question_id):
     context = {'question': question}
     return render(request, 'pybo/question_detail.html', context)
 
+@login_required(login_url='common:login')
 def answer_create(request, question_id):
     """
     pybo 답변등록
@@ -30,6 +44,7 @@ def answer_create(request, question_id):
         form = AnswerForm(request.POST)
         if form.is_valid():
             answer = form.save(commit=False)
+            answer.author = request.user
             answer.create_date = timezone.now()
             answer.question = question
             answer.save()
@@ -39,6 +54,7 @@ def answer_create(request, question_id):
     context = {'question': question, 'form': form}
     return render(request, 'pybo/question_detail.html', context)
 
+@login_required(login_url='common:login')
 def question_create(request):
     """
     pybo 질문등록
@@ -47,6 +63,7 @@ def question_create(request):
         form = QuestionForm(request.POST)
         if form.is_valid():
             question = form.save(commit=False)
+            question.author = request.user
             question.create_date = timezone.now()
             question.save()
             return redirect('pybo:index')
